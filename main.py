@@ -24,6 +24,7 @@ def main():
     else: #To be used once the SVD implementation is finished
         pass
 
+    getUsers.getUserInfo()
 
 
 if __name__ == '__main__':
