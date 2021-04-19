@@ -16,6 +16,7 @@ import findRecs
 def main():
     df = pd.read_csv("data/steam.csv")
     game_names = df['name'].to_numpy()
+    print("Head of data set:\n{}\n\n".format(df.head()))
     reduced_df = None
     # reduced_df = SVD.runSVD(df) #TODO: Implement Singular Value Decomposition to reduce cols in DataFrame
     if not reduced_df: #To be used while we work on the SVD implementation
