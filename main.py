@@ -33,8 +33,8 @@ def addRowToDF(receiving_df: pd.DataFrame, giving_df: pd.DataFrame, friend) -> p
 
 	userName, userId, userGames = friend
 	new_row = formRow(userName, userGames, giving_df)
-	if new_row['User'].isin(receiving_df):
-		return receiving_df
+	# if new_row['User'].isin(receiving_df): # Error Point
+	# 	return receiving_df
 
 	receiving_df = receiving_df.append(new_row, ignore_index=True)
 	receiving_df['User'].iloc[-1] = userName
