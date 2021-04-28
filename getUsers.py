@@ -4,6 +4,36 @@ Suggested API: ISteamUser -> https://steamcommunity.com/dev
 '''
 import requests
 import os
+import numpy as np
+
+import json
+import pycurl
+import time
+from io import BytesIO
+
+pyC = pycurl.Curl()
+
+key = '67651BAD4657CA147D02F2C879D4B287'
+
+requests = 0
+'''
+APICALL - Wrapper Function for making API requests using pycurl and json libraries
+'''
+def APICall(url):
+    global requests
+    resbuff = BytesIO()
+    pyC.setopt(pyC.WRITEDATA, resbuff)
+    pyC.setopt(pyC.URL,url)
+    pyC.perform()
+    response = str(resbuff.getvalue().decode('utf-8'))
+    if ("Bad Request" in response):
+        return 0
+    elif ("Error" in response):
+        raise Exception('API call experienced error\nRequest:\n{}\n\nResponse:\n{}'.format(url, response))
+    requests +=1
+    return json.loads(response)
+        
+    
 
 '''
 Run API call to get list of users with their full game libraries
@@ -12,8 +42,6 @@ NOTE: We're using a static data set (steam.csv) along with a dynamically
     We will correct that in main.py
 '''
 def getUserSummary(steamid: str):
-
-    key = '67651BAD4657CA147D02F2C879D4B287'
     userSummary = requests.get("http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key="+key+"&steamids="+steamid).json()
     userName = userSummary['response']['players'][0]['personaname']
 
@@ -30,22 +58,105 @@ def getUserSummary(steamid: str):
     return (userName, ownedGames)
 
 
-def getUserInfo(): 
+'''
+getUserFriends - Retrieves a user's friend list is user profile is public
+'''
+def getUserFriends(steamid: str): 
+    friends_list = np.array([])
     
-    key = '67651BAD4657CA147D02F2C879D4B287' #API key
-    cats_steam_id = "76561198272988632" #Cat's Steam ID, used as a starting point for useer gathering
-    entry_link = "http://api.steampowered.com/ISteamUser/"
+    friends_res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
+        'http://api.steampowered.com/ISteamUser/', 'GetFriendList/v0001', 
+        'key', key,
+        'steamid', steamid,
+        'relationship', 'all')
+    )
+    if not ((friends_res) and 
+            ('friendslist' in friends_res) and 
+            ('friends' in friends_res['friendslist'])):
+        return friends_list
+        
+    for user in friends_res['friendslist']['friends']:
+        if ('steamid' in user) and type(user['steamid']==str):
+            friends_list = np.append(friends_list, user['steamid'])
     
-    friendsList = requests.get(entry_link+"GetFriendList/v0001/?key="+key+"&steamid="+cats_steam_id+"&relationship=friend")
-    my_summary = requests.get(entry_link+"GetPlayerSummaries/v0002/?key="+key+"&steamids="+cats_steam_id)
+    return friends_list
     
-    friendsList_json = friendsList.json()['friendslist']['friends']
-    friends = []
+
+'''
+buildUserListFrom - Develops a list of players 
+    @ param streamids - Players to grab friend's list from to build a large list of users
+    @ param n - Number of users to stop build at
+    @ returns - List of Stream Ids
+'''
+def buildUserListFrom(steamids: (str or np.ndarray), n: int = 1000):
+    users = np.array([steamids]) if type(steamids)==str else np.array(steamids)
     
-    for i in range(len(friendsList_json)):
-        friend = friendsList_json[i]
-        friend_id = friend['steamid']
-        (userName, userGames) = getUserSummary(friend_id)
-        friends.append((userName, friend_id, userGames))
+    user_count = 0 # A counter for which user additional users are grabbed from on an growing user stack
+    while (user_count<len(users) and len(users)<n):
+        users = np.unique(np.append(users, getUserFriends(users[user_count])))
+        user_count+=1
     
-    return friends
+    return users[:min(len(users),n)]
+        
+
+
+'''
+getUserGames - Performs bulk requests on a list of users, getting game relevant data
+    @ param steamids - Steam ids to request game data on
+    @ param verbose - Prints the current game data loaded
+    @ return - Returns an array of tuples (game id, hours played)
+'''
+
+def getUserGames(steamids: np.ndarray, cacheto: str = None, verbose: bool = False):
+    out = None
+    if (cacheto):
+        out = open(cacheto, 'w')
+    else:
+        out = {}
+    
+    count, n, verb_chpt = 0, len(steamids), max(100, int(.05*len(steamids)))
+    for steamid in steamids:
+        # Allow verbose comments to show progress on requests (since there are a lot)
+        if verbose and count%verb_chpt==0 and count>0:
+            print("Grabbed {}/{} users' libraries".format(count, n))
+        
+        # Make call
+        res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
+            'http://api.steampowered.com/IPlayerService/', 'GetOwnedGames/v0001', 
+            'key', key,
+            'steamid', steamid,
+            'include_played_free_games', '1')
+        )
+        
+        # Error checking
+        if not ((res) and 
+                ('response' in res) and 
+                ('games' in res['response'])):
+            continue
+        
+        # Parse data for only relevant info
+        game_data = []
+        for game in res['response']['games']:
+            app_time_tup = (game['appid'], game['playtime_forever'])
+            game_data += [app_time_tup]
+        
+        if (cacheto):
+            out.write("{}, {}\n".format(steamid, json.dumps(game_data)))
+        else:
+            out[steamid] = game_data
+    
+    if (cacheto):
+        out.close()
+    else:
+        return out    
+
+
+
+start = time.time()
+users =  buildUserListFrom('76561198272988632', 10000)
+getUserGames(users, 'user_games_cache.csv', True)
+print('requests: {}\ntime: {}\ntime per req: {}'.format(
+    requests, time.time()-start, (time.time()-start)/requests
+))
+
+
