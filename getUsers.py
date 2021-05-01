@@ -148,15 +148,5 @@ def getUserGames(steamids: np.ndarray, cacheto: str = None, verbose: bool = Fals
     if (cacheto):
         out.close()
     else:
-        return out    
-
-
-
-start = time.time()
-users =  buildUserListFrom('76561198272988632', 10000)
-getUserGames(users, 'user_games_cache.csv', True)
-print('requests: {}\ntime: {}\ntime per req: {}'.format(
-    requests, time.time()-start, (time.time()-start)/requests
-))
-
-
+        return out
+    
