@@ -12,7 +12,7 @@ import time
 from io import BytesIO
 
 pyC = pycurl.Curl()
-KEY = '67651BAD4657CA147D02F2C879D4B287'
+key = '67651BAD4657CA147D02F2C879D4B287'
 
 requests = 0
 '''
@@ -64,7 +64,7 @@ def getUserFriends(steamid: str):
     
     friends_res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
         'http://api.steampowered.com/ISteamUser/', 'GetFriendList/v0001', 
-        'key', KEY,
+        'key', key,
         'steamid', steamid,
         'relationship', 'all')
     )
@@ -91,7 +91,7 @@ def filterPrivateUsers(steamids: np.ndarray):
         ids_format = ','.join(ids)
         res = APICall("{}{}/?{}={}&{}={}".format(
             'http://api.steampowered.com/ISteamUser/', 'GetPlayerSummaries/v0002', 
-            'key', KEY,
+            'key', key,
             'steamids', ids_format)
         )
         
@@ -111,7 +111,7 @@ def filterPrivateUsers(steamids: np.ndarray):
             # Check if they are actually a public account (not just friends-only)
             game_res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
                 'http://api.steampowered.com/IPlayerService/', 'GetOwnedGames/v0001', 
-                'key', KEY,
+                'key', key,
                 'steamid', user['steamid'],
                 'include_played_free_games', '1')
             )
@@ -177,7 +177,7 @@ def getUserGames(steamids: np.ndarray, cacheto: str = None, verbose: bool = Fals
         # Make call; Grab from cache if available and remove from cache; or send API request
         res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
             'http://api.steampowered.com/IPlayerService/', 'GetOwnedGames/v0001', 
-            'key', KEY,
+            'key', key,
             'steamid', steamid,
             'include_played_free_games', '1')
         ) 
