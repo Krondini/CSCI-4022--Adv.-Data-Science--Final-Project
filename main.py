@@ -37,8 +37,6 @@ def main():
 
 	
 	user_df = pd.DataFrame([], columns=["User"]+list(game_ids))
-	firendsList = getUsers.getUserFriends(user_steamid) # Get friends starting from origin point
-
 
 	users = getUsers.buildUserListFrom(user_steamid, 1000)
 	
@@ -82,6 +80,7 @@ def main():
 	match = None
 	match_df = None
 
+	user_df = user_df[user_df['User'] != user_steamid]
 	while match_df == None:
 		match = findRecs.findBestMatch(user_df)
 		match_df = getUsers.getUserSummary(str(match['User']))
@@ -101,7 +100,7 @@ def main():
 	print("Based on your friends list, we recommend the following games:")
 	for game in new_games:
 		print('\t', end='')
-		print('[{}]'.format(findRecs.findGameFromID(game, match['User'])))
+		print('[{}][{}][{}]'.format(match['User'], game, findRecs.findGameFromID(game, match['User'])))
 
 if __name__ == '__main__':
 	main()

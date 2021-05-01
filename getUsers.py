@@ -48,7 +48,7 @@ def getUserSummary(steamid: str):
     # Collect all games ever played by user
     # Then sort by most play time, forever
     res = req.get("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key="+key+"&steamid="+steamid+"&format=json").json()['response']
-    if not res:
+    if not res or len(res)==0:
         return None
     ownedGames = res['games']
     ownedGames = sorted(ownedGames, key= lambda game: game["playtime_forever"], reverse=True)

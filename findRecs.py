@@ -61,7 +61,7 @@ def findBestMatch(df: pd.DataFrame) -> pd.DataFrame:
 def findGameFromID(appid: int, steamid: int):
     games_lst = req.get("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key="+key+"&steamid="+str(steamid)+"&include_appinfo=true&format=json").json()['response']['games']
     
-    game_name = None
+    game_name = "this is returned"
     for game in games_lst:
         if game['appid'] == appid:
             game_name = game['name']
