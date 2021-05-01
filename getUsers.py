@@ -30,8 +30,11 @@ def APICall(url):
     elif ("Server Error" in response):
         raise Exception('API call experienced error\nRequest:\n{}\n\nResponse:\n{}'.format(url, response))
     requests +=1
-    return json.loads(response)
-        
+    try:
+        return json.loads(response)
+    
+    except:
+        return 0
     
 
 '''
@@ -50,6 +53,7 @@ def getUserSummary(steamid: str):
     res = req.get("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key="+key+"&steamid="+steamid+"&format=json").json()['response']
     if not res or len(res)==0:
         return None
+    # print("Red: {}".format(res))
     ownedGames = res['games']
     ownedGames = sorted(ownedGames, key= lambda game: game["playtime_forever"], reverse=True)
     

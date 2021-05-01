@@ -41,7 +41,8 @@ def findBestMatch(df: pd.DataFrame) -> pd.DataFrame:
 
     modified_df = df.loc[:, (df != 0).any(axis=0)] # Remove columns of all 0s, not getting info from that
     curr_user = modified_df.iloc[-1].to_numpy()
-    modified_df = modified_df.drop(df.tail(1).index)
+    modified_df = modified_df[modified_df['User'] != curr_user[0]]
+    # print(modified_df[modified_df['User'] == ])
 
     closest_user_dist = 1000
     closest_user = None
@@ -50,6 +51,7 @@ def findBestMatch(df: pd.DataFrame) -> pd.DataFrame:
     for index, row in modified_df.iterrows():
 
         if row['User'] == curr_user[0]:
+            print(row['User'], curr_user[0])
             continue 
         compare_user = row.to_numpy()[1:]
         user_dist = cosine_sim(curr_user_games, compare_user)
@@ -57,7 +59,8 @@ def findBestMatch(df: pd.DataFrame) -> pd.DataFrame:
 
             closest_user_dist = user_dist
             closest_user = row
-    return row
+
+    return closest_user
 
 
 def findGameFromID(appid: int, steamid: int):

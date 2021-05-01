@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import SVD
 import getUsers
 import findRecs
-from os import path, chdir
+from os import path, chdir, system
 from json import loads
 
 def formRow(username: str, games: np.ndarray, df: pd.DataFrame) -> pd.Series:
@@ -41,14 +41,11 @@ def main():
 	users = getUsers.buildUserListFrom(user_id, 1000) #Build list of friends
 	
 	if not path.exists("data/games.csv"):
-		chdir('data')
-		getUsers.getUserGames(users, "games.csv", True)
-		chdir('..')
+		getUsers.getUserGames(users, "data/games.csv", True)
 
 	if not path.exists("data/users_full.csv"):
 
-		chdir('data')
-		fo = open("games.csv")
+		fo = open("data/games.csv")
 		lines = fo.readlines()
 		num_exec = len(lines)
 		print("Executing {} total additions to DataFrame".format(num_exec))
@@ -63,8 +60,7 @@ def main():
 			user_df = formRow(line[0], games, user_df)
 			num_exec -= 1
 	
-		user_df.to_csv("users_full.csv", index=False)
-		chdir('..')
+		user_df.to_csv("data/users_full.csv", index=False)
 
 	user_df = pd.read_csv('data/users_full.csv')
 	this_user_games = getUsers.getUserSummary(user_id)[1]
@@ -75,13 +71,14 @@ def main():
 		this_user_dict[game['appid']] = game['playtime_forever']
 	
 	user_df = user_df.append(this_user_dict, ignore_index=True).fillna(0)
-	
-	# match = None
-	# match_df = None
 
-	match = findRecs.findBestMatch(user_df)
-	match_df = getUsers.getUserSummary(str(match['User']))
-	user_df = user_df[user_df['User'] != match['User']]
+	match = None
+	match_df = None
+
+	while match_df == None:
+		match = findRecs.findBestMatch(user_df)
+		match_df = getUsers.getUserSummary(str(match['User']))
+		user_df = user_df[user_df['User'] != match['User']]
 
 
 	compare_user_dict = {"User": str(match['User'])}
@@ -97,7 +94,7 @@ def main():
 	print("Based on your friends list, we recommend the following games:")
 	for game in new_games:
 		print('\t', end='')
-		print('[{}][{}][{}]'.format(match['User'], game, findRecs.findGameFromID(game, match['User'])))
+		print('[{}]'.format(findRecs.findGameFromID(game, match['User'])))
 
 if __name__ == '__main__':
 	main()
