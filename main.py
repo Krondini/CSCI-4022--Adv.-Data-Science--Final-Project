@@ -31,14 +31,14 @@ def formRow(username: str, games: np.ndarray, df: pd.DataFrame) -> pd.Series:
 # "76561198272988632"
 def main():
 
-	user_steamid = input("Please enter your Steam ID: ")
+	user_id = '76561198272988632'
 	game_df = pd.read_csv("data/steam.csv") # Read in data
 	game_ids = game_df['appid'].to_numpy() # Obtain app-ids for later
 
 	
-	user_df = pd.DataFrame([], columns=["User"]+list(game_ids))
+	user_df = pd.DataFrame([], columns=["User"]+list(game_ids))	
 
-	users = getUsers.buildUserListFrom(user_steamid, 1000)
+	users = getUsers.buildUserListFrom(user_id, 1000) #Build list of friends
 	
 	if not path.exists("data/games.csv"):
 		chdir('data')
@@ -67,7 +67,6 @@ def main():
 		chdir('..')
 
 	user_df = pd.read_csv('data/users_full.csv')
-	user_id = user_steamid
 	this_user_games = getUsers.getUserSummary(user_id)[1]
 	
 	this_user_dict = {"User": user_id}
@@ -77,14 +76,12 @@ def main():
 	
 	user_df = user_df.append(this_user_dict, ignore_index=True).fillna(0)
 	
-	match = None
-	match_df = None
+	# match = None
+	# match_df = None
 
-	user_df = user_df[user_df['User'] != user_steamid]
-	while match_df == None:
-		match = findRecs.findBestMatch(user_df)
-		match_df = getUsers.getUserSummary(str(match['User']))
-		user_df = user_df[user_df['User'] != match['User']]
+	match = findRecs.findBestMatch(user_df)
+	match_df = getUsers.getUserSummary(str(match['User']))
+	user_df = user_df[user_df['User'] != match['User']]
 
 
 	compare_user_dict = {"User": str(match['User'])}

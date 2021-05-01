@@ -36,7 +36,7 @@ def findBestMatch(df: pd.DataFrame) -> pd.DataFrame:
         return np.sqrt(np.sum(x**2))
 
     def cosine_sim(x: np.ndarray, y: np.ndarray):
-        return np.sum(x*y)/(mag(x)*mag(y))
+        return np.nansum(x*y)/(mag(x)*mag(y))
 
 
     modified_df = df.loc[:, (df != 0).any(axis=0)] # Remove columns of all 0s, not getting info from that
@@ -49,9 +49,11 @@ def findBestMatch(df: pd.DataFrame) -> pd.DataFrame:
     curr_user_games = curr_user[1:]
     for index, row in modified_df.iterrows():
 
+        if row['User'] == curr_user[0]:
+            continue 
         compare_user = row.to_numpy()[1:]
         user_dist = cosine_sim(curr_user_games, compare_user)
-        if np.abs(user_dist - closest_user_dist) < closest_user_dist:
+        if user_dist < closest_user_dist:
 
             closest_user_dist = user_dist
             closest_user = row
