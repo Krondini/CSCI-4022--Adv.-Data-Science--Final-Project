@@ -6,7 +6,7 @@ File Purpose: Once we have obtained our list of users
 import numpy as np
 import pandas as pd
 import requests as req
-from getUsers import key
+from getUsers import KEY as key
 
 def findRecs(my_games: pd.DataFrame, their_games: pd.DataFrame) -> str:
     
