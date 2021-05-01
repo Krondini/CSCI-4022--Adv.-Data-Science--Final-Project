@@ -2,7 +2,7 @@
 File Purpose: Use Steam API to get a set of users to be used in the item recommendation system
 Suggested API: ISteamUser -> https://steamcommunity.com/dev
 '''
-import requests
+import requests as req
 import os
 import numpy as np
 
@@ -42,19 +42,18 @@ NOTE: We're using a static data set (steam.csv) along with a dynamically
     We will correct that in main.py
 '''
 def getUserSummary(steamid: str):
-    userSummary = requests.get("http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key="+key+"&steamids="+steamid).json()
+    userSummary = req.get("http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key="+key+"&steamids="+steamid).json()
     userName = userSummary['response']['players'][0]['personaname']
+    print(userName)
 
     # Collect all games ever played by user
     # Then sort by most play time, forever
-    ownedGames = requests.get("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key="+key+"&steamid="+steamid+"&format=json").json()['response']['games']
+    res = req.get("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key="+key+"&steamid="+steamid+"&format=json").json()['response']
+    if not res:
+        return None
+    ownedGames = res['games']
     ownedGames = sorted(ownedGames, key= lambda game: game["playtime_forever"], reverse=True)
     
-    # os.system('clear')
-    # print("User: {} (#{}) owns {} games".format(userName, steamid, len(ownedGames)))
-    
-    # input("> ")
-
     return (userName, ownedGames)
 
 

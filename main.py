@@ -12,78 +12,96 @@ import matplotlib.pyplot as plt
 import SVD
 import getUsers
 import findRecs
+from os import path, chdir
+from json import loads
 
-def formRow(username: str, games: list, df: pd.DataFrame) -> pd.Series:
+def formRow(username: str, games: np.ndarray, df: pd.DataFrame) -> pd.Series:
 
-	row = pd.Series(np.zeros(len(df))) #Initialize row of playtime to be all zero
-
+	dict_form = {"User": username}
 	for game in games: #Iterate over user's games
-		game_id = game['appid']
-		df_index = df.index[df['appid'] == game_id]
-		if len(df_index) == 0: #Skip games with no info in dataset
-			continue
-		df_index = df_index[0] #Only one number in list at this point, just want it not the whole list
-		row[df_index] = game['playtime_forever']
+		game_id = game[0]
+		playtime = game[1]
+		dict_form[game_id] = playtime
 
-	return row
+	df = df.append(dict_form, ignore_index=True).fillna(0)
 
-
-### TODO!!!
-def addRowToDF(receiving_df: pd.DataFrame, giving_df: pd.DataFrame, friend) -> pd.DataFrame:
-
-	userName, userId, userGames = friend
-	new_row = formRow(userName, userGames, giving_df)
-	# if new_row['User'].isin(receiving_df): # Error Point
-	# 	return receiving_df
-
-	receiving_df = receiving_df.append(new_row, ignore_index=True)
-	receiving_df['User'].iloc[-1] = userName
-	
-	minutes_total = np.sum(new_row[1:])
-	hours_total = minutes_total/60
-	days_total = hours_total/24
-	years_total = days_total/365
-	
-	print("User: \'{}\' has a total of: {} minutes of gaming on steam.".format(userName, minutes_total))
-	print("This is equivalent to {:.2f} total hours of gaming.".format(hours_total))
-	print("{:.2f} days of playing.".format(days_total))
-	print("Or even {:.4f} years of playing... nerrrrrd!".format(years_total))
-
-	return receiving_df
-### TODO!!!
+	return df
 
 
+# "76561198272988632"
 def main():
 
+	user_steamid = input("Please enter your Steam ID: ")
 	game_df = pd.read_csv("data/steam.csv") # Read in data
 	game_ids = game_df['appid'].to_numpy() # Obtain app-ids for later
 
-	# print("Head of data set:\n{}\n\n".format(game_df.head()))
-	
-	reduced_df = None
-	
-	# reduced_df = SVD.runSVD(df) #Later Task: Implement Singular Value Decomposition to reduce cols in DataFrame
-	if not reduced_df: #To be used while we work on the SVD implementation
-		pass
-
-	else: #To be used once the SVD implementation is finished	
-		pass
-
-	# game1 = userGames[0]
-	# print(game1)
 	
 	user_df = pd.DataFrame([], columns=["User"]+list(game_ids))
-	firendsList = getUsers.getUserInfo()
-
-	#-----------------Stopping Point------------------#
-
-	user_df = addRowToDF(user_df, game_df, firendsList[0])
-		
+	firendsList = getUsers.getUserFriends(user_steamid) # Get friends starting from origin point
 
 
-	# print(user_df.head())
-
+	users = getUsers.buildUserListFrom(user_steamid, 1000)
 	
+	if not path.exists("data/games.csv"):
+		chdir('data')
+		getUsers.getUserGames(users, "games.csv", True)
+		chdir('..')
+
+	if not path.exists("data/users_full.csv"):
+
+		chdir('data')
+		fo = open("games.csv")
+		lines = fo.readlines()
+		num_exec = len(lines)
+		print("Executing {} total additions to DataFrame".format(num_exec))
+		fo.close()
+		for line in lines:
+
+			if num_exec%10 == 0:
+				print("{} additions remaining".format(num_exec))
+
+			line = line.strip().split(', ', 1)
+			games = np.array(loads(line[1]))
+			user_df = formRow(line[0], games, user_df)
+			num_exec -= 1
+	
+		user_df.to_csv("users_full.csv", index=False)
+		chdir('..')
+
+	user_df = pd.read_csv('data/users_full.csv')
+	user_id = user_steamid
+	this_user_games = getUsers.getUserSummary(user_id)[1]
+	
+	this_user_dict = {"User": user_id}
+	for game in this_user_games:
+
+		this_user_dict[game['appid']] = game['playtime_forever']
+	
+	user_df = user_df.append(this_user_dict, ignore_index=True).fillna(0)
+	
+	match = None
+	match_df = None
+
+	while match_df == None:
+		match = findRecs.findBestMatch(user_df)
+		match_df = getUsers.getUserSummary(str(match['User']))
+		user_df = user_df[user_df['User'] != match['User']]
+
+
+	compare_user_dict = {"User": str(match['User'])}
+	for game in match_df[1]:
+
+		compare_user_dict[game['appid']] = game['playtime_forever']
+
+	my_df = pd.DataFrame([], columns=["User"]+list(game_ids))
+	my_df = my_df.append(this_user_dict, ignore_index=True).fillna(0)
+	them_df = pd.DataFrame([], columns=["User"]+list(game_ids))
+	them_df = them_df.append(compare_user_dict, ignore_index=True)
+	new_games = findRecs.findRecs(my_df, them_df)
+	print("Based on your friends list, we recommend the following games:")
+	for game in new_games:
+		print('\t', end='')
+		print('[{}]'.format(findRecs.findGameFromID(game, match['User'])))
 
 if __name__ == '__main__':
 	main()
