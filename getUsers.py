@@ -12,8 +12,7 @@ import time
 from io import BytesIO
 
 pyC = pycurl.Curl()
-
-key = '67651BAD4657CA147D02F2C879D4B287'
+KEY = '67651BAD4657CA147D02F2C879D4B287'
 
 requests = 0
 '''
@@ -28,7 +27,7 @@ def APICall(url):
     response = str(resbuff.getvalue().decode('utf-8'))
     if ("Bad Request" in response):
         return 0
-    elif ("Error" in response):
+    elif ("Server Error" in response):
         raise Exception('API call experienced error\nRequest:\n{}\n\nResponse:\n{}'.format(url, response))
     requests +=1
     return json.loads(response)
@@ -66,7 +65,7 @@ def getUserFriends(steamid: str):
     
     friends_res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
         'http://api.steampowered.com/ISteamUser/', 'GetFriendList/v0001', 
-        'key', key,
+        'key', KEY,
         'steamid', steamid,
         'relationship', 'all')
     )
@@ -83,20 +82,74 @@ def getUserFriends(steamid: str):
     
 
 '''
+filterPrivateUsers() - Will remove 
+'''
+def filterPrivateUsers(steamids: np.ndarray):
+    publicids=np.array([])
+    
+    for i in range(0, len(steamids), 100):
+        ids = steamids[i : min(len(steamids), i+100)]
+        ids_format = ','.join(ids)
+        res = APICall("{}{}/?{}={}&{}={}".format(
+            'http://api.steampowered.com/ISteamUser/', 'GetPlayerSummaries/v0002', 
+            'key', KEY,
+            'steamids', ids_format)
+        )
+        
+        # Bulk grab player stats
+        if not ((res) and 
+                ('response' in res) and 
+                ('players' in res['response'])):
+            print("Encountered error")
+            continue
+        
+        # Iterate over players to parse public accounts
+        for user in res['response']['players']:
+            # Quick check on accounts visibility status
+            if not ('communityvisibilitystate' in user and user['communityvisibilitystate']>1):
+                continue
+            
+            # Check if they are actually a public account (not just friends-only)
+            game_res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
+                'http://api.steampowered.com/IPlayerService/', 'GetOwnedGames/v0001', 
+                'key', KEY,
+                'steamid', user['steamid'],
+                'include_played_free_games', '1')
+            )
+            if not ((game_res) and 
+                    ('response' in game_res) and 
+                    ('games' in game_res['response'])):
+                continue
+            
+            # Save game data in cache if it exists; and count this user towards public users in list
+            cached_game_data[user['steamid']] = game_res
+            publicids = np.append(publicids, user['steamid'])
+    
+    return publicids
+    
+
+'''
 buildUserListFrom - Develops a list of players 
-    @ param streamids - Players to grab friend's list from to build a large list of users
+    @ param steamids - Players to grab friend's list from to build a large list of users
     @ param n - Number of users to stop build at
-    @ returns - List of Stream Ids
+    @ returns - List of Steam Ids which are public
 '''
 def buildUserListFrom(steamids: (str or np.ndarray), n: int = 1000):
     users = np.array([steamids]) if type(steamids)==str else np.array(steamids)
+    #publicusers = filterPrivateUsers(users)
     
     user_count = 0 # A counter for which user additional users are grabbed from on an growing user stack
-    while (user_count<len(users) and len(users)<n):
-        users = np.unique(np.append(users, getUserFriends(users[user_count])))
-        user_count+=1
     
+    # Iterates over users, filtering out those with accounts which are public and will return game lists
+    while (user_count<len(users) and len(users)<n):
+        new = getUserFriends(users[user_count])
+        #publicusers = np.unique(np.append(publicusers, filterPrivateUsers(new)))
+        
+        users = np.unique(np.append(users, new))
+        user_count+=1
+        
     return users[:min(len(users),n)]
+    #return publicusers[:min(len(publicusers),n)]
         
 
 
@@ -113,20 +166,23 @@ def getUserGames(steamids: np.ndarray, cacheto: str = None, verbose: bool = Fals
         out = open(cacheto, 'w')
     else:
         out = {}
+        
+    gamesnum_data = np.array([])
     
-    count, n, verb_chpt = 0, len(steamids), max(100, int(.05*len(steamids)))
+    count, n, verb_chpt = 0, len(steamids), min(1000, max(100, int(.05*len(steamids))))
     for steamid in steamids:
         # Allow verbose comments to show progress on requests (since there are a lot)
         if verbose and count%verb_chpt==0 and count>0:
             print("Grabbed {}/{} users' libraries".format(count, n))
         
-        # Make call
+        # Make call; Grab from cache if available and remove from cache; or send API request
         res = APICall("{}{}/?{}={}&{}={}&{}={}".format(
             'http://api.steampowered.com/IPlayerService/', 'GetOwnedGames/v0001', 
-            'key', key,
+            'key', KEY,
             'steamid', steamid,
             'include_played_free_games', '1')
-        )
+        ) 
+        
         
         # Error checking
         if not ((res) and 
@@ -144,17 +200,26 @@ def getUserGames(steamids: np.ndarray, cacheto: str = None, verbose: bool = Fals
             out.write("{}, {}\n".format(steamid, json.dumps(game_data)))
         else:
             out[steamid] = game_data
+        
+        # Prepare for next iteration
+        count+=1
     
-    if (cacheto):
-        out.close()
-    else:
-        return out    
+        gamesnum_data = np.append(gamesnum_data, res['response']['game_count'])
+    return gamesnum_data
+    
+    #if (cacheto):
+    #    out.close()
+    #else:
+    #    return out    
 
-
-
-start = time.time()
 users =  buildUserListFrom('76561198272988632', 10000)
-getUserGames(users, 'user_games_cache.csv', True)
+gamesnum_data = getUserGames(users, verbose = True)
+print(
+    np.mean(gamesnum_data),
+    np.std(gamesnum_data),
+    len(gamesnum_data)
+)
+start = time.time()
 print('requests: {}\ntime: {}\ntime per req: {}'.format(
     requests, time.time()-start, (time.time()-start)/requests
 ))
