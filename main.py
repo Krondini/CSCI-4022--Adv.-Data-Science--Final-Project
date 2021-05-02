@@ -31,7 +31,7 @@ def formRow(username: str, games: np.ndarray, df: pd.DataFrame) -> pd.Series:
 # "76561198272988632"
 def main():
 
-	user_id = '76561198272988632'
+	user_id = input("Please enter yourr Steam ID: ")
 	game_df = pd.read_csv("data/steam.csv") # Read in data
 	game_ids = game_df['appid'].to_numpy() # Obtain app-ids for later
 
